@@ -3,26 +3,44 @@
 target    TGT_C64
 *=$0810
 start
-          lda  #$20      ; space
-          ldx  #0        ; border color
-          ldy  #0        ; background color
-          jsr  clrscr    ; clear screen
+          lda  #$20       ; space
+          ldx  #0         ; border color
+          ldy  #0         ; background color
+          jsr  clrscr     ; clear screen
+          jsr  init_scroll_color
           jsr  init      ; initialize system
-                         ;jsr  music_init ; init music
+          jsr  draw_stripes
+          jsr  music_init ; init music
 
           jsr  build_track
           jsr  update_track
           jsr  update_trl ; update track lines
 main
-                         ;jsr  joy2dir   ; read joystick
+          ;lda  $d012     
+          ;cmp  #205               
+          ;beq  @set_color1
+          ;cmp  #210
+          ;beq  @set_color2 
+          
+          jmp  main      
+          
+@set_color1  
+          ldx  #2
+          stx  $d020
+          stx  $d021
+          jmp  main 
+@set_color2
+          ldx  #0
+          stx  $d020
+          stx  $d021                   
           jmp  main
 ;-------------------------------------------------------------------------------
 ;       IRQ
 ;-------------------------------------------------------------------------------
 irq2
-          lda  #$04
-          sta  $d020
-                         ;sta  $d021
+          ;lda  #$00
+          ;sta  $d020
+          ;sta  $d021
           jsr  music_play;
           lda  #<irq1
           ldx  #>irq1
@@ -35,10 +53,10 @@ irq2
           asl  $d019
           jmp  $ea81
 irq1
-          lda  #$05
-          sta  $d020
-                         ;sta  $d021
-                         ;jsr  update_physics
+          ;lda  #0
+          ;sta  $d020
+          ;sta  $d021
+
           lda  $d016     ; load x-scroll value         
           and  #%111     ; mask value
           
@@ -82,8 +100,8 @@ init
           sta  $0314
           stx  $0315
           asl  $d019
-                         ;lda  #$1c
-                         ;sta  $d018     ; chars at $3000
+          ;lda  #$1c
+          ;sta  $d018     ; chars at $3000
           lda  #$80      ; disable shift+CBM
           sta  $0291
           lda  #$ff      ; disable cursor
@@ -109,47 +127,55 @@ clrscr
           bne  @loop
           rts
 ;-------------------------------------------------------------------------------
-; routine: joy2dir
-; purpose: get joystic 2 state
-; output: j2dx, j2dy
+; routine: init_scroll_color
+; purpose: init text color on scroll area
+; input  : none
+
 ;-------------------------------------------------------------------------------
-joy2dir
-@djrr    lda  $dc00     ; get input from port 2 only
-@djrrb   ldy  #0        ; this routine reads and decodes the
-          ldx  #0        ; joystick/firebutton input data in
-          lsr            ; the accumulator. this least significant
-          bcs  @djr0     ; 5 bits contain the switch closure
-          dey            ; information. if a switch is closed then it
-@djr0    lsr            ; produces a zero bit. if a switch is open then
-          bcs  @djr1     ; it produces a one bit. The joystick dir-
-          iny            ; ections are right, left, forward, backward
-@djr1    lsr            ; bit3=right, bit2=left, bit1=backward,
-          bcs  @djr2     ; bit0=forward and bit4=fire button.
-          dex            ; at rts time dx and dy contain 2's compliment
-@djr2    lsr            ; direction numbers i.e. $ff=-1, $00=0, $01=1.
-          bcs  @djr3     ; dx=1 (move right), dx=-1 (move left),
-          inx            ; dx=0 (no x change). dy=-1 (move up screen),
-@djr3    lsr            ; dy=0 (move down screen), dy=0 (no y change).
-          stx  j2dx      ; the forward joystick position corresponds
-          sty  j2dy      ; to move up the screen and the backward
-          rts            ; position to move down screen.
-                         ;
-                         ; at rts time the carry flag contains the fire
-                         ; button state. if c=1 then button not pressed.
-                         ; if c=0 then pressed.
-j2dx      BYTE 0        ;joystick x dir
-j2dy      BYTE 0        ;joystick y dir
-;-------------------------------------------------------------------------------
+init_scroll_color
+     
+          ldx  #0
+@loop
+
+          lda  @text_color_data,x   
+    
+          sta  $da07,x    ;row 13
+          sta  $da2f,x    ;row 14
+          sta  $da57,x    ;row 15
+          sta  $da7f,x    ;row 16
+          sta  $daa7,x    ;row 17
+          sta  $dacf,x    ;row 18
+
+          inx
+          cpx  #40
+          bne  @loop
+
+          rts
+@text_color_data
+          byte 2,11,11,12,15
+repeat 30
+          byte 1
+endrepeat          
+          byte 15,12,11,11,11
+
+draw_stripes          
+          ldx  #40
+@loop     lda  #$4d      ;character
+          sta  $5df,x    ; row 12
+          sta  $6f7,x    ; row 19
+          lda  #2        ;red
+          sta  $d9df,x   
+          sta  $daf7,x   
+          dex
+          bne  @loop
+          rts
+
 *=$1000
 music_init
           rts
 music_play
           rts
-*=$c000
-update_physics
-                         ;determine car state (solid, fly, jump)
-                         ;handle joystic (speed change, orientation)
-          rts
+
 update_track
           
           ldx  @scroll             
@@ -166,9 +192,6 @@ update_track
 @scroll  BYTE 7
 
 
-update_sprites
-                         ;x,y position, sprite# based on orientation
-          rts
 ;-------------------------------------------------------------------------------
 ; Update Track lines
 ;-------------------------------------------------------------------------------

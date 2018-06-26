@@ -13,27 +13,12 @@ start
           jsr  music_init ; init music
 
           jsr  build_scroll
-          jsr  update_scroll
-          jsr  update_scroll_text ; update scroll text 
+          ;jsr  update_scroll
+          ;jsr  update_scroll_text ; update scroll text 
 main
-          ;lda  $d012     
-          ;cmp  #205               
-          ;beq  @set_color1
-          ;cmp  #210
-          ;beq  @set_color2 
           
           jmp  main      
           
-@set_color1  
-          ldx  #2
-          stx  $d020
-          stx  $d021
-          jmp  main 
-@set_color2
-          ldx  #0
-          stx  $d020
-          stx  $d021                   
-          jmp  main
 ;-------------------------------------------------------------------------------
 ;       IRQ
 ;-------------------------------------------------------------------------------
@@ -42,16 +27,21 @@ irq2
           ;sta  $d020
           ;sta  $d021
           jsr  music_play;
-          lda  #<irq1
-          ldx  #>irq1
-          sta  $0314
-          stx  $0315
-          ldy  #202      ; Create raster interrupt at line 204 / row 19
-          jsr  update_scroll
           
-          sty  $d012
-          asl  $d019
-          jmp  $ea81
+          lda  #<irq1  ;save cycles
+          ;ldx  #>irq1
+          sta  $0314
+          ;stx  $0315
+
+          jsr  update_scroll
+         
+          ldy  #202      ; Create raster interrupt at line 204 / row 19 
+          ;sty  $d012
+          ;asl  $d019
+          ;jmp  $ea81
+
+          bcc   irq_end  ;save space
+
 irq1
           ;lda  #0
           ;sta  $d020
@@ -61,19 +51,25 @@ irq1
           and  #%111     ; mask value
           
           bne  @restx    
-          jsr  update_scroll_text ; update track lines
+          jsr  update_scroll_text ; update scroll lines
 @restx
           lda  $d016     ; restore x-scroll
           and  #%11111000
           sta  $d016
+          
           lda  #<irq2
-          ldx  #>irq2
+          ;ldx  #>irq2
           sta  $0314
-          stx  $0315
+          ;stx  $0315     
+          
           ldy  #153      ; Create raster interrupt at line 153 / row 13
+          
+irq_end
           sty  $d012
           asl  $d019
-          jmp  $ea81
+          jmp  $ea81     
+          
+
 ;-------------------------------------------------------------------------------
 ; routine: init
 ; purpose: initialize all

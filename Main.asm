@@ -1,4 +1,4 @@
-*=$0801
+ *=$0801
           BYTE $0E, $08, $0A, $00, $9E, $20, $28,  $32, $30, $36, $34, $29, $00, $00, $00
 target    TGT_C64
 *=$0810
@@ -12,9 +12,9 @@ start
           jsr  draw_stripes
           jsr  music_init ; init music
 
-          jsr  build_track
-          jsr  update_track
-          jsr  update_trl ; update track lines
+          jsr  build_scroll
+          jsr  update_scroll
+          jsr  update_scroll_text ; update scroll text 
 main
           ;lda  $d012     
           ;cmp  #205               
@@ -47,7 +47,7 @@ irq2
           sta  $0314
           stx  $0315
           ldy  #202      ; Create raster interrupt at line 204 / row 19
-          jsr  update_track
+          jsr  update_scroll
           
           sty  $d012
           asl  $d019
@@ -61,7 +61,7 @@ irq1
           and  #%111     ; mask value
           
           bne  @restx    
-          jsr  update_trl ; update track lines
+          jsr  update_scroll_text ; update track lines
 @restx
           lda  $d016     ; restore x-scroll
           and  #%11111000
@@ -160,7 +160,7 @@ endrepeat
 
 draw_stripes          
           ldx  #40
-@loop     lda  #$4d      ;character
+@loop     lda  #$40      ;character
           sta  $5df,x    ; row 12
           sta  $6f7,x    ; row 19
           lda  #2        ;red
@@ -176,56 +176,91 @@ music_init
 music_play
           rts
 
-update_track
+update_scroll
           
-          ldx  @scroll             
+          ldx  @xscroll             
           dex          
           txa
           and  #%00000111
-          sta  @scroll
+          sta  @xscroll
           lda  $d016
           and  #%11111000
-          ora  @scroll
+          ora  @xscroll
           sta  $d016
                          ;d016 scroll and major scroll
           rts
-@scroll  BYTE 7
+@xscroll  BYTE 7
 
 
 ;-------------------------------------------------------------------------------
-; Update Track lines
+; Update Scroll text
 ;-------------------------------------------------------------------------------
-update_trl
+reset_scroll_text
+          sta  scr_offs  ; 0 already in A
+          rts
+update_scroll_text
           ldx  #0
-          ldy  @scr_offs 
+          ldy  scr_offs 
           iny
-          sty  @scr_offs
+          sty  scr_offs
 @loop
-          lda  $8000,y   
-          iny
-          sta  $607,x    ;row 13
+          lda  $8000,y      ;get character
+     
+          beq  reset_scroll_text ;0 ends the text   
+
+          ;sta  $607,x    ;row 13
           sta  $62f,x    ;row 14
           sta  $657,x    ;row 15
           sta  $67f,x    ;row 16
           sta  $6a7,x    ;row 17
-          sta  $6cf,x    ;row 18
-
+          ;sta  $6cf,x    ;row 18
+         
+          iny
           inx
           cpx  #40
           bne  @loop
 
           rts
-@scr_offs BYTE 0
+        
+scr_offs BYTE 0
 ;-------------------------------------------------------------------------------
 ; Test track data at $c400
 ;-------------------------------------------------------------------------------
-build_track
-          ldx  #$ff
-          ldy  #0
+build_scroll
+          ldx  #0
+          clc
 @loop
-          dey
-          tya
-          sta  $8000,x   ;row 13
-          dex
-          bne  @loop
+          lda @scrolltext,x   
+          beq @exit
+          sta $8000,x   ;row 13
+          inx
+          bcc @loop
+@exit       
+          lda  #$00      ;filler character            
+@exit2    
+          sta  $8000,x   
+          inx
+          bne @exit2
           rts
+;;todo compress spaces
+@scrolltext
+
+repeat 40
+          byte $20
+endrepeat
+          
+          text 'hello '
+          
+repeat 10
+          byte $20
+endrepeat
+          
+          text 'what the fuck is going on here '
+          text 'greetings to all geezers '
+repeat 40
+          byte $20
+endrepeat
+          byte 0
+
+;end
+
